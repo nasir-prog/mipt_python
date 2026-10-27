@@ -1,93 +1,45 @@
-import csv
-from collections import defaultdict
 from pathlib import Path
-from statistics import mean
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 
+folder = Path(__file__).parent
+output = folder / "results" / "episode3"
+output.mkdir(parents=True, exist_ok=True)
 
-ROOT = Path(__file__).resolve().parent
+students = []
+with open(folder / "data" / "episode3" / "students.csv") as file:
+    for line in file:
+        teacher, group, mark = line.strip().split(";")
+        students.append([teacher, group, int(mark)])
 
+names = [
+    ["prep1", "prep2", "prep3", "prep4", "prep5", "prep6", "prep7"],
+    ["751", "752", "753", "754", "755", "756"]
+]
+titles = ["Оценки по преподавателям", "Оценки по группам"]
 
-def read_results(path):
-    results = []
-    with Path(path).open(encoding="utf-8-sig", newline="") as file:
-        for number, row in enumerate(csv.reader(file, delimiter=";"), start=1):
-            if not row or all(not field.strip() for field in row):
-                continue
-            if len(row) != 3:
-                raise ValueError(f"Строка {number}: ожидались преподаватель, группа и оценка")
-            teacher, group, mark = (field.strip() for field in row)
-            results.append((teacher, group, int(mark)))
-    if not results:
-        raise ValueError("Файл оценок пуст")
-    return results
+fig, axes = plt.subplots(2, 1, figsize=(10, 8))
 
+for number in range(2):
+    bottom = [0] * len(names[number])
 
-def split_results(results, column):
-    grouped = defaultdict(list)
-    for row in results:
-        grouped[row[column]].append(row[2])
-    return dict(sorted(grouped.items()))
+    for mark in range(3, 11):
+        counts = []
+        for name in names[number]:
+            count = 0
+            for student in students:
+                if student[number] == name and student[2] == mark:
+                    count += 1
+            counts.append(count)
 
+        axes[number].bar(names[number], counts, bottom=bottom, label=str(mark))
+        for i in range(len(bottom)):
+            bottom[i] += counts[i]
 
-def draw_distribution(ax, grouped, marks, title, xlabel):
-    labels = list(grouped)
-    positions = list(range(len(labels)))
-    bottom = [0] * len(labels)
-    colors = plt.get_cmap("tab10")
-    for index, mark in enumerate(marks):
-        counts = [grouped[label].count(mark) for label in labels]
-        ax.bar(positions, counts, bottom=bottom, label=str(mark), color=colors(index % 10), width=0.72)
-        bottom = [total + count for total, count in zip(bottom, counts)]
-    ax.set_xticks(positions, labels)
-    ax.set(title=title, xlabel=xlabel, ylabel="Количество студентов")
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    ax.grid(axis="y", alpha=0.25)
-    ax.set_axisbelow(True)
-    ax.legend(title="Оценка", bbox_to_anchor=(1.02, 1), loc="upper left")
+    axes[number].set_title(titles[number])
+    axes[number].set_ylabel("Количество студентов")
+    axes[number].legend(title="Оценка", loc="upper left", bbox_to_anchor=(1, 1))
 
-
-def describe(grouped):
-    return "; ".join(f"{label}: {mean(marks):.2f} (n={len(marks)})" for label, marks in grouped.items())
-
-
-def extremes(grouped, highest):
-    value = (max if highest else min)(mean(marks) for marks in grouped.values())
-    labels = [label for label, marks in grouped.items() if mean(marks) == value]
-    return ", ".join(labels), value
-
-
-def main(data_path=None, output_dir=None):
-    data_path = Path(data_path) if data_path is not None else ROOT / "data" / "episode3" / "students.csv"
-    output_dir = Path(output_dir) if output_dir is not None else ROOT / "results" / "episode3"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    results = read_results(data_path)
-    teachers = split_results(results, 0)
-    groups = split_results(results, 1)
-    marks = sorted({mark for _, _, mark in results})
-    fig, axes = plt.subplots(2, 1, figsize=(11, 9), layout="constrained")
-    draw_distribution(axes[0], teachers, marks, "Распределение оценок по преподавателям", "Преподаватель")
-    draw_distribution(axes[1], groups, marks, "Распределение оценок по группам", "Группа")
-    fig.savefig(output_dir / "marks_distribution.png", dpi=160)
-    plt.close(fig)
-    easiest, highest = extremes(teachers, True)
-    strictest, lowest = extremes(teachers, False)
-    weakest, group_lowest = extremes(groups, False)
-    summary = "\n".join([
-        f"Всего студентов: {len(results)}",
-        f"Средние оценки по преподавателям: {describe(teachers)}",
-        f"Средние оценки по группам: {describe(groups)}",
-        f"Предположительно наиболее лояльные преподаватели: {easiest} (средняя {highest:.2f}).",
-        f"Предположительно наиболее строгие преподаватели: {strictest} (средняя {lowest:.2f}).",
-        f"Группы с наименьшей средней оценкой: {weakest} (средняя {group_lowest:.2f}).",
-        "Это предположения по средним оценкам: состав студентов у преподавателей может различаться.",
-        "Низкая средняя оценка группы сама по себе не доказывает небрежность студентов.",
-    ]) + "\n"
-    (output_dir / "conclusions.txt").write_text(summary, encoding="utf-8")
-    return summary
-
-
-if __name__ == "__main__":
-    print(main())
+plt.tight_layout()
+plt.savefig(output / "marks_distribution.png")
+plt.close()
