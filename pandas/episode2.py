@@ -8,4 +8,5 @@ print(result)
 
 result.plot.bar(subplots=True, legend=False, figsize=(8, 8), rot=0)
 plt.tight_layout()
+plt.savefig("flights.png")
 plt.show()
