@@ -1,10 +1,7 @@
-from pathlib import Path
-
 import pandas as pd
 
-folder = Path(__file__).parent
-transactions = pd.read_csv(folder / "transactions.csv", index_col=0)
+transactions = pd.read_csv("transactions.csv", index_col=0)
 payments = transactions[transactions["STATUS"] == "OK"]
 
-print(payments.nlargest(3, "SUM"))
-print(payments.loc[payments["CONTRACTOR"] == "Umbrella, Inc", "SUM"].sum())
+print(payments.sort_values("SUM", ascending=False).head(3))
+print(payments[payments["CONTRACTOR"] == "Umbrella, Inc"]["SUM"].sum())
